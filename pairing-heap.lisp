@@ -72,15 +72,18 @@
   (setf (right child) (left parent)
         (parent child) parent
         (left parent) child)
+  ;;Encoding parent relation as per the child-sibling tree rather than heap.
+  (when (right child)
+    (setf (parent (right child)) child))
   parent)
 
 (defmethod cut-subtree ((n pairing-node) (h pairing-heap))
-  (if (eql (left (parent n)) n)
+  (if (eql (left (parent n)) n) ;child of parent? if not, sibling.
       (setf (left (parent n)) (right n))
-      (do ((sibling (left (parent n)) (right sibling)))
-          ((eql (right sibling) n) (setf (right sibling) (right n)))))
+      (setf (right (parent n)) (right n)))
   (setf (right n) nil (parent n) nil)
   (node->heap n (comp-fn h)))
+
 
 (defmethod delete-node ((n pairing-node) (h pairing-heap))
   (if (eql n (root h))

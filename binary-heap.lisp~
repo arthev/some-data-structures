@@ -1,0 +1,12 @@
+(defclass binary-node ()
+  ((key
+    :accessor key
+    :initarg :key)
+   (datum
+    :accessor datum
+    :initarg :datum)))
+
+(defclass binary-heap ()
+  ((vec
+    :accessor vec
+    :initform (make-array 32 :fill-pointer 0 :adjustable t))))
