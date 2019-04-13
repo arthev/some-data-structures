@@ -15,5 +15,6 @@
    :pop-extrema
    :delete-node
    :update-key
-   :meld))
+   :meld
+   :verify-heap))
    

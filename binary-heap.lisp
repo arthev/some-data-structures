@@ -139,10 +139,11 @@
         do (let* ((n (aref (vec h) i))
                   (l (left-impl n h))
                   (r (right-impl n h)))
-             (when l (assert (or
-                              (funcall (comp-fn h) (key n) (key l))
-                              (eql (key n) (key l)))))
-             (when r (assert (or
-                              (funcall (comp-fn h) (key n) (key r))
-                              (eql (key n) (key r)))))))
+             (when (and l (not (or
+                                (funcall (comp-fn h) (key n) (key l))
+                                (eql (key n) (key l)))))
+               (return-from verify-heap nil))
+             (when (and r (not (or
+                                (funcall (comp-fn h) (key n) (key r))
+                                (eql (key n) (key r))))))))
   t)

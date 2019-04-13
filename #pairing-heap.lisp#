@@ -138,7 +138,7 @@
   (let ((s (list (peek-extrema h))))
     (do ((p (pop s) (pop s)))
         ((null p) t)
-      (format t "~S~%" s)
+;      (format t "~S~%" s)
       (do ((c (left p) (right c)))
           ((null c))
         (if (or
