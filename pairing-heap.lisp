@@ -42,7 +42,7 @@
   (insert-node (make-instance 'pairing-node :key key :datum datum) h))
 
 (defmethod pop-extrema ((h pairing-heap))
-  (when (empty-p h) (return-from pop-extrema (root h)))
+  (when (empty-p h) (return-from pop-extrema nil))
   (let ((subtree-list '())
         (paired-list '())
         (comp-fn (comp-fn h))
@@ -72,12 +72,18 @@
         (meld sub-heap h)
         n)))
 
+;; (defmethod update-key (new-key (n pairing-node) (h pairing-heap))
+;;   (cond ((not (eql n (root h)))
+;;          (meld (update-key new-key n (cut-subtree n h)) h))
+;;         ((funcall (comp-fn h) new-key (key n))
+;;          (setf (key n) new-key))
+;;         (t
+;;          (pop-extrema h)
+;;          (setf (left n) nil (right n) nil (parent n) nil (key n) new-key)
+;;          (insert-node n h)))
+;;   h)
+
 (defmethod update-key (new-key (n pairing-node) (h pairing-heap))
-  ;; (unless (eql n (root h))
-  ;;   (format
-  ;;    t
-  ;;    "Updating ~A. Old-key: ~A, new-key: ~A.~%
-  ;;   Direct-parent: ~A~%" n (key n) new-key (eql n (left (parent n)))))
   (cond ((not (eql n (root h)))
          (meld (update-key new-key n (cut-subtree n h)) h))
         ((funcall (comp-fn h) new-key (key n))
@@ -87,6 +93,7 @@
          (setf (left n) nil (right n) nil (parent n) nil (key n) new-key)
          (insert-node n h)))
   h)
+
 
 (defmethod meld ((h1 pairing-heap) (h2 pairing-heap))
   (when (not (eql (comp-fn h1) (comp-fn h2)))
@@ -131,21 +138,27 @@
   (if (eql (left (parent n)) n) ;child of parent? if not, sibling.
       (setf (left (parent n)) (right n))
       (setf (right (parent n)) (right n)))
+  (when (right n)
+    (setf (parent (right n)) (parent n)))
   (setf (right n) nil (parent n) nil)
   (node->heap n (comp-fn h)))
 
 (defmethod verify-heap ((h pairing-heap))
+;  (format t "Now in verify.~%")
   (let ((s (list (peek-extrema h))))
     (do ((p (pop s) (pop s)))
         ((null p) t)
-      (format t "~S~%" s)
+;      (format t "Now in outer loop.~%")
+;      (format t "~S~%" s)
       (do ((c (left p) (right c)))
           ((null c))
+;        (format t "Right: ~A~%" (datum (right c)))
         (if (or
              (funcall (comp-fn h) (key p) (key c))
              (eql (key p) (key c)))
             (push c s)
-            (return-from verify-heap `((:p ,p) (:c ,c))))))))
+            (return-from verify-heap nil))))))
+;            (return-from verify-heap `((:p ,p) (:c ,c)))))))))
 
         
 

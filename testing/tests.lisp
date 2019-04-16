@@ -56,10 +56,12 @@
         (when (zerop (rem (1+ i) 10))
           (ok (ds:verify-heap h)
               (format nil "~A verifies after ~A inserts." h (1+ i))))))
-    (dotimes (i 20)
+    (dotimes (i 50)
       (if (zerop (rem i 2))
           (ds:update-key (random 200) (ds:peek-extrema h) h)
-          (ds:pop-extrema h)))
+          (ds:pop-extrema h))
+      (when (not (ds:verify-heap h))
+        (error "wtf")))
     (dotimes (i 40)
       (let ((r (random 60)))
         (ds:insert r r h)
@@ -93,7 +95,7 @@
         (v (make-array 200 :fill-pointer 0 :adjustable t)))
     (dotimes (i 200)
       (let ((r (random 200)))
-        (vector-push-extend (ds:insert r r h) v)))
+        (vector-push-extend (ds:insert r i h) v)))
     (dotimes (i 100)
       (let ((r1 (random 200))
             (r2 (random 300)))
@@ -101,6 +103,8 @@
         (when (or (not (ds:verify-heap h)) (zerop (rem (1+ i) 10)))
           (ok (ds:verify-heap h)
               (format nil "~A verifs after ~A key updates." h (1+ i))))))))
+
+
       
 
     
@@ -111,10 +115,10 @@
   (test-empty-p heap-type)
   (test-peek-extrema heap-type)
   (test-insert heap-type)
-  ;;(test-pop-extrema heap-type))
+  (test-pop-extrema heap-type)
   (test-update-key heap-type))
 
-;(test-suite 'ds:pairing-heap)
+(test-suite 'ds:pairing-heap)
 ;(test-suite 'ds:binary-heap)
 
 

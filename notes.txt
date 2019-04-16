@@ -1,0 +1,8 @@
+pop-extrema seems to work fine for pairing-heaps,
+whereas update-key doesn't. Verify also ends up showing these really long streaks of 'right'.
+Seems there's a cycle formed somewhere in the code used by update-key.
+
+Maybe try analyzing the paths taken through update-key and pop-extrema to see the diff,
+which might hint to what part(s) of update-key are in error?
+
+Maybe try switching update-key into using less micro-optimized approaches, to see if the general approach holds?
