@@ -1,5 +1,14 @@
 (in-package :testing-some-data-structures)
 
+;;;Utils
+(defun knuth-shuffle (arr)
+  (loop for i from (1- (length arr)) downto 1
+        do (let ((j (random i)))
+             (rotatef (aref arr i) (aref arr j))))
+  arr)
+
+
+
 (plan nil)
 
 
@@ -90,6 +99,32 @@
                 (format nil "~A pops same value as vector after ~A pops."
                         h (1+ i))))))))
 
+(defun test-delete-node (heap-type)
+  (let ((h (make-instance heap-type))
+        (ht (make-hash-table))
+        (v (make-array 100)))
+    (ds:insert 1 1 h)
+    (ds:delete-node (ds:peek-extrema h) h)
+    (ok (ds:empty-p h)
+        (format nil "~A is empty after delete-node'ing the root." h))
+
+    (dotimes (i 100)
+      (let ((r (random 100)))
+        (setf (gethash i ht) (ds:insert r i h))
+        (setf (aref v i) i)))
+    (knuth-shuffle v)
+    (dotimes (i 20)
+      (ds:update-key (random 100) (gethash (random 100) ht) h))
+    (ok (loop for n across v
+              do (ds:delete-node (gethash n ht) h)
+              when (not (ds:verify-heap h))
+                do (return nil)
+              finally (return t))
+        (format nil "~A verifies as heap at each step of deleting all nodes
+                     in random order." h))
+    (ok (ds:empty-p h)
+        (format nil "~A is empty after randomly deleting all nodes." h))))
+
 (defun test-update-key (heap-type)
   (let ((h (make-instance heap-type))
         (v (make-array 200 :fill-pointer 0 :adjustable t)))
@@ -104,7 +139,57 @@
           (ok (ds:verify-heap h)
               (format nil "~A verifs after ~A key updates." h (1+ i))))))))
 
+(defun test-meld (heap-type)
+  (let ((h1 (make-instance heap-type))
+        (h2 (make-instance heap-type)))
 
+    (ok (ds:empty-p (ds:meld h1 h2))
+        (format nil "~A meld returns empty heap if given two empty ones."
+                heap-type))
+    
+    (ds:insert 1 1 h1)
+    (is (ds:meld h1 h2)
+        h1
+        "~A meld returns non-empty heap if given one empty heap." heap-type)
+    (ds:pop-extrema h1)
+    (ds:pop-extrema h2)
+    
+    (let ((n1 (ds:insert 3 3 h1)))
+      (ds:insert 5 5 h2)
+      (ds:meld h1 h2)
+      (ok (and (eql (ds:peek-extrema h1) (ds:peek-extrema h2))
+               (eql (ds:peek-extrema h1) n1))
+          (format nil "~A root of heaps meld updates to correct 
+                       element given two 1-node heaps." heap-type))))
+  
+  (let ((h1 (make-instance heap-type))
+        (h2 (make-instance heap-type)))
+    (dotimes (i 40)
+      (ds:insert (random 100) i h1))
+    (dotimes (i 60)
+      (ds:insert (random 100) i h2))
+    (ds:meld h1 h2)
+    (ok (and (ds:verify-heap h1) (ds:verify-heap h2))
+        (format nil "~A verifies both heap args after a meld." heap-type))
+    (is (ds:size h1)
+        100
+        (format nil "~A has combined node count after a meld." heap-type)))
+
+  (let ((h1 (make-instance heap-type :comp-fn #'<))
+        (h2 (make-instance heap-type :comp-fn #'>)))
+    (ok (block error-block
+          (handler-case (ds:meld h1 h2)
+            (error (c)
+              (return-from error-block t))
+            (return-from error-block nil)))
+        (format nil "~A meld generates error if heaps w/ diff comp-fns
+                     are attempted melded." heap-type))))
+    
+  
+
+
+    
+    
       
 
     
@@ -116,7 +201,10 @@
   (test-peek-extrema heap-type)
   (test-insert heap-type)
   (test-pop-extrema heap-type)
-  (test-update-key heap-type))
+  (test-delete-node heap-type)
+  (test-update-key heap-type)
+  (test-meld heap-type))
+
 
 (test-suite 'ds:pairing-heap)
 ;(test-suite 'ds:binary-heap)
