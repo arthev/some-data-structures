@@ -11,33 +11,24 @@
   `(format nil ,string ,@args))
 
 
-
+;;;Tests
 (plan nil)
 
 
 
 (defun test-empty-p (heap-type)
   (let ((h (make-instance heap-type)))
-    (ok (ds:empty-p h)
-        (s "~A is empty upon creation." h))
+    (ok (ds:empty-p h) (s "~A is empty upon creation." h))
     (ds:insert 1 1 h)
-    (ok (not (ds:empty-p h))
-        (s "~A is not empty after insert." h))
+    (ok (not (ds:empty-p h)) (s "~A is not empty after an insert." h))
     (ds:pop-extrema h)
-    (ok (ds:empty-p h)
-        (s "~A is empty after pop after insert." h))
+    (ok (ds:empty-p h) (s "~A is empty after pop after one insert." h))
     (dotimes (i 100)
-      (let* ((r (random 100))
-             (n (ds:insert r r h)))
-        (when (zerop (random 2))
-          (ds:update-key (random 100) n h))))
-    (ok (not (ds:empty-p h))
-        (s "~A is not empty after 100 inserts 
-                     & prob 50 random key-updates." h))
+      (ds:insert (random 100) (random 100) h))
+    (ok (not (ds:empty-p h)) (s "~A is not empty after 100 inserts." h))
     (dotimes (i 100)
       (ds:pop-extrema h))
-    (ok (ds:empty-p h)
-        (s "~A is empty again after popping the 100 inserts." h))))
+    (ok (ds:empty-p h) (s "~A is empty after popping the 100 inserts." h))))
 
 (defun test-peek-extrema (heap-type)
   (let ((h (make-instance heap-type))
@@ -60,34 +51,31 @@
 
 (defun test-insert (heap-type)
   (let ((h (make-instance heap-type)))
-    (ok (ds:verify-heap h)
-        (s "~A verifies pre-insert." h))
-    (dotimes (i 100)
-      (let ((r (random 100)))
-        (ds:insert r r h)
-        (when (zerop (rem (1+ i) 10))
-          (ok (ds:verify-heap h)
-              (s "~A verifies after ~A inserts." h (1+ i))))))
-    (is (ds:size h)
-        100
-        (s "~A has size 100 after 100 inserts." h))
+    (ok (ds:verify-heap h) (s "~A heap-verifies pre-insert." h))
+    (ok (dotimes (i 100 t)
+          (let ((r (random 100)))
+            (ds:insert r r h)
+            (unless (ds:verify-heap h)
+              (return nil))))
+        (s "~A heap-verifies at each step of 100 inserts." h))
+    (is (ds:size h) 100 (s "~A has size 100 after 100 inserts." h))
     (dotimes (i 50)
       (if (zerop (rem i 2))
           (ds:update-key (random 200) (ds:peek-extrema h) h)
           (ds:pop-extrema h))
-      (when (not (ds:verify-heap h))
-        (error "wtf")))
+       (when (not (ds:verify-heap h))
+         (error "heap doesn't verify during pop/upd phase of insert test")))
     (is (ds:size h)
         75
         (s "~A has size 75 after 100 inserts & 25 pops." h))
     (dotimes (i 40)
       (let ((r (random 60)))
         (ds:insert r r h)
-        (when (zerop (rem (1+ i) 10))
-          (ok (ds:verify-heap h)
-              (s "~A verifies after ~A inserts after some
-                           key updates and pops." h (1+ i))))))))
+        (unless (ds:verify-heap h)
+          (fail (s "~A verifies after ~A inserts after some
+                    key updates and pops." h (1+ i))))))))
 
+    
 (defun test-pop-extrema (heap-type)
   (let ((h (make-instance heap-type))
         (v (make-array 32 :fill-pointer 0 :adjustable t)))
@@ -97,16 +85,26 @@
       (let ((r (random 1000)))
         (ds:insert r r h)
         (vector-push-extend r v)))
-    (sort v #'>)
+    (sort v (complement (ds:comp-fn h)))
     (is (ds:key (ds:pop-extrema h)) (vector-pop v)
         (s "~A pops same key as least item in sorted vec." h))
-    (dotimes (i 199)
-      (let ((hp (ds:key (ds:pop-extrema h)))
-            (vp (vector-pop v)))
-        (when (or (not (eql hp vp)) (zerop (rem (1+ i) 10)))
-            (is hp vp
-                (s "~A pops same value as vector after ~A pops."
-                        h (1+ i))))))))
+    (ok (dotimes (i 199 t)
+          (let ((hp (ds:key (ds:pop-extrema h)))
+                (vp (vector-pop v)))
+            (unless (and (eql hp vp) (ds:verify-heap h))
+              (return nil))))
+        (s "~A pops correct val and heap-verifies for 199 pops." h))))
+    
+    ;; (dotimes (i 199)
+    ;;   (let ((hp (ds:key (ds:pop-extrema h)))
+    ;;         (vp (vector-pop v)))
+    ;;     (when (or (not (eql hp vp)) (zerop (rem (1+ i) 10)))
+    ;;         (is hp vp
+    ;;             (s "~A pops same value as vector after ~A pops."
+    ;;                h (1+ i)))
+    ;;         (ds:print-heap h)
+    ;;         (error "kek")
+    ;;         (return nil))))))
 
 (defun test-delete-node (heap-type)
   (let ((h (make-instance heap-type))
@@ -151,19 +149,19 @@
 (defun test-meld (heap-type)
   (let ((h1 (make-instance heap-type))
         (h2 (make-instance heap-type)))
-    
     (ok (ds:empty-p (ds:meld h1 h2))
-        (s "~A meld returns empty heap if given two empty ones."
-                heap-type))
-    
+        (s "~A meld w/ two empty heaps returns an empty one." heap-type)))
+
+  (let ((h1 (make-instance heap-type))
+        (h2 (make-instance heap-type)))
     (ds:insert 1 1 h1)
     (is (ds:meld h1 h2)
         h1
         (s "~A meld returns non-empty heap if given one 
-                     empty heap." heap-type))
-    (ds:pop-extrema h1)
-    (ds:pop-extrema h2)
+                     empty heap." heap-type)))
 
+  (let ((h1 (make-instance heap-type))
+        (h2 (make-instance heap-type)))
     (let ((n1 (ds:insert 3 3 h1)))
       (ds:insert 5 5 h2)
       (ds:meld h1 h2)
@@ -187,10 +185,9 @@
               (eql n2 (ds:peek-extrema h1)))
           (s "~A post-meld has root as expected." heap-type))
       (is (ds:size h1)
-        100
-        (s "~A has size 100 after melding |60| and |40|." h1))
-
-      
+          100
+          (s "~A has size 100 after melding |60| and |40|." h1))))
+  
   (let ((h1 (make-instance heap-type :comp-fn #'<))
         (h2 (make-instance heap-type :comp-fn #'>)))
     (ok (block error-block
@@ -199,8 +196,7 @@
               (return-from error-block t)))
           nil)
         (s "~A meld generates error if heaps w/ diff comp-fns
-                     are attempted melded." heap-type))))))
-
+                     are attempted melded." heap-type))))
   
 
 
@@ -219,11 +215,11 @@
   (test-pop-extrema heap-type)
   (test-delete-node heap-type)
   (test-update-key heap-type)
-  (test-meld heap-type))
-
+  (test-meld heap-type)
+  )
 
 (test-suite 'ds:pairing-heap)
-;(test-suite 'ds:binary-heap)
+(test-suite 'ds:binary-heap)
 
 
 

@@ -33,8 +33,8 @@
 (defmethod pop-extrema ((h binary-heap))
   (when (empty-p h) (return-from pop-extrema nil))
   (let ((extrema (peek-extrema h)))
-    (setf (aref (vec h) 0) (vector-pop (vec h)))
-    (setf (index (aref (vec h) 0)) 0)
+    (setf (aref (vec h) 0) (vector-pop (vec h))
+          (index (aref (vec h) 0)) 0)
     (heapify (peek-extrema h) h)
     extrema))
 
@@ -60,11 +60,14 @@
 
 (defmethod meld ((h1 binary-heap) (h2 binary-heap))
   (assert (eql (comp-fn h1) (comp-fn h2)) (h1 h2)
-          "~A and ~A are not same comp-fn.")
+          "~A and ~A don't have same comp-fn." h1 h2)
   (let ((new-heap
-          (make-instance
-           'binary-heap :comp-fn (comp-fn h1)
-                        :seq (concatenate 'vector (vec h1) (vec h2)))))
+          (cond ((empty-p h1) h2)
+                ((empty-p h2) h1)
+                (t (make-instance
+                    'binary-heap
+                    :comp-fn (comp-fn h1)
+                    :seq (concatenate 'vector (vec h1) (vec h2)))))))
     (setf (vec h1) (vec new-heap) (vec h2) (vec new-heap))
     new-heap))
   
@@ -81,24 +84,23 @@
 
 (defmethod left-impl ((n binary-node) (h binary-heap))
   (let ((li (1+ (* 2 (index n)))))
-    (when (<= li (1- (length (vec h))))
+    (when (< li (length (vec h)))
       (aref (vec h) li))))
 
 (defmethod right-impl ((n binary-node) (h binary-heap))
   (let ((ri (+ 2 (* 2 (index n)))))
-    (when (<= ri (1- (length (vec h))))
+    (when (< ri (length (vec h)))
       (aref (vec h) ri))))
 
 (defmethod heapify ((n binary-node) (h binary-heap))
   (let ((l (left-impl n h)) (r (right-impl n h))
-        (comp-fn (comp-fn h)) (extrema nil))
-    (cond ((and l (funcall comp-fn (key l) (key n)))
-           (setf extrema l))
-          ((and r (funcall comp-fn (key r) (key n)))
-           (setf extrema r))
-          (t (setf extrema n)))
-    (when (not (eql extrema n))
-      (exchange extrema n h)
+        (comp-fn (comp-fn h)) (local n))
+    (when (and l (funcall comp-fn (key l) (key local)))
+      (setf local l))
+    (when (and r (funcall comp-fn (key r) (key local)))
+      (setf local r))
+    (when (not (eql local n))
+      (exchange local n h)
       (heapify n h))))
 
 (defmethod print-heap ((h binary-heap))
@@ -116,23 +118,25 @@
 (defmethod initialize-instance :after ((h binary-heap)
                                        &key (seq nil) &allow-other-keys)
   (assert (typep seq 'sequence) (seq) "~A is not a sequence." seq)
-  (when seq
-    (let ((new-vec (make-array 32 :fill-pointer 0 :adjustable t)))
+  (let ((new-vec (make-array 32 :fill-pointer 0 :adjustable t)))
+    (setf (vec h) new-vec)    
+    (when (and seq (not (zerop (length seq))))
       (map nil (lambda (n)
                  (vector-push-extend
                   (if (typep n 'binary-node)
                       (progn (setf (index n) (length new-vec))
                              n)
-                      (make-instance 'binary-node :key (key n)
-                                                  :datum (datum n)
-                                                  :index (length new-vec)))
+                      (make-instance 'binary-node
+                                     :key (key n)
+                                     :datum (datum n)
+                                     :index (length new-vec)))
                   new-vec))
            seq)
-      (setf (vec h) new-vec)
       (loop for i from (floor (/ (length new-vec) 2)) downto 0
             do (heapify (aref new-vec i) h))))
   h)
 
+;;;For testing purposes
 (defmethod verify-heap ((h binary-heap))
   (when (empty-p h) (return-from verify-heap t))
   (loop for i from 0 to (floor (/ (length (vec h)) 2))
@@ -147,3 +151,6 @@
                                 (funcall (comp-fn h) (key n) (key r))
                                 (eql (key n) (key r))))))))
   t)
+
+(defmethod size ((h binary-heap))
+  (length (vec h)))

@@ -17,5 +17,9 @@
    :delete-node
    :update-key
    :meld
-   :verify-heap))
+   :verify-heap
+   ;;temp
+   :vec
+   :print-heap
+   :comp-fn))
    
