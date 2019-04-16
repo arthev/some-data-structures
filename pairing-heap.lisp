@@ -32,6 +32,7 @@
     :initform #'<
     :initarg :comp-fn)))
 
+
 (defmethod empty-p ((h pairing-heap))
   (null (root h)))
 
@@ -99,7 +100,7 @@
     parent))
 
 ;;;Internal support
-(defmethod insert-node ((n pairing-node) (h pairing-heap))
+(defmethod insertn-node ((n pairing-node) (h pairing-heap))
   (setf (root h) (if (empty-p h) n (meld-nodes n (root h) (comp-fn h))))
   n)
 
@@ -134,6 +135,9 @@
   (setf (right n) nil (parent n) nil)
   (node->heap n (comp-fn h)))
 
+;;;TODO: Make similar seq initializer for pairing-heap as for binary-heaps.
+
+;;;For testing purposes
 (defmethod verify-heap ((h pairing-heap))
   (let ((s (list (peek-extrema h))))
     (do ((p (pop s) (pop s)))
@@ -146,8 +150,14 @@
             (push c s)
             (return-from verify-heap nil))))))
 
+(defmethod size ((h pairing-heap))
+  (labels ((trav-count (n)
+             (if (null n)
+                 0
+                 (+ 1 (trav-count (left n)) (trav-count (right n))))))
+    (trav-count (root h))))
 
-        
 
 
-;;;TODO: Make similar seq initializer for pairing-heap as for binary-heaps.
+
+

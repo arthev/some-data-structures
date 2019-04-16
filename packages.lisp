@@ -10,6 +10,7 @@
    :key
    :datum
    :empty-p
+   :size
    :peek-extrema
    :insert
    :pop-extrema
