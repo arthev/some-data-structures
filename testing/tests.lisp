@@ -10,6 +10,11 @@
 (defmacro s (string &rest args)
   `(format nil ,string ,@args))
 
+(defmacro hrepok (times str &body body)
+  `(ok (dotimes (i ,times t)
+         ,@body
+         (unless (ds:verify-heap h) (return nil)))
+       ,str))
 
 ;;;Tests
 (plan nil)
@@ -37,45 +42,26 @@
       (let ((r (random 1000)))
         (ds:insert r r h)
         (vector-push-extend r v)))
-    (sort v #'<)
+    (sort v (ds:comp-fn h))
     (is (ds:key (ds:peek-extrema h)) (aref v 0)
-        (s "~A's peek-extrema returns same as the extrema of
-                     a sorted vector of same key values." h))
-    (loop for n = (ds:peek-extrema h) then (ds:peek-extrema h)
-          until (not (= (ds:key n) (aref v 0)))
-          do (ds:update-key (1+ (aref v (1- (length v)))) n h))
-    (isnt (ds:key (ds:peek-extrema h)) (aref v 0)
-          (s "~A's peek-extrema is not the same as of the sorted
-                        vector of same key values after increasing keys in
-                        a loop until the extreme value moves." h))))
+        (s "~A's peek-extrema returns extrema." h))))
 
 (defun test-insert (heap-type)
   (let ((h (make-instance heap-type)))
     (ok (ds:verify-heap h) (s "~A heap-verifies pre-insert." h))
-    (ok (dotimes (i 100 t)
-          (let ((r (random 100)))
-            (ds:insert r r h)
-            (unless (ds:verify-heap h)
-              (return nil))))
-        (s "~A heap-verifies at each step of 100 inserts." h))
+    (hrepok 100 (s "~A heap-verifies ∀ 100 inserts." h)
+      (let ((r (random 100)))
+        (ds:insert r i h)))
     (is (ds:size h) 100 (s "~A has size 100 after 100 inserts." h))
-    (dotimes (i 50)
+    (hrepok 50 (s "~A heap-verifies ∀ 25 alt pop and updkey." h)
       (if (zerop (rem i 2))
           (ds:update-key (random 200) (ds:peek-extrema h) h)
-          (ds:pop-extrema h))
-       (when (not (ds:verify-heap h))
-         (error "heap doesn't verify during pop/upd phase of insert test")))
-    (is (ds:size h)
-        75
-        (s "~A has size 75 after 100 inserts & 25 pops." h))
-    (dotimes (i 40)
+          (ds:pop-extrema h)))
+    (is (ds:size h) 75 (s "~A has size 75 after 100 inserts & 25 pops." h))
+    (hrepok 40 (s "~A verifies ∀ 40 inserts after pops and upds." h)
       (let ((r (random 60)))
-        (ds:insert r r h)
-        (unless (ds:verify-heap h)
-          (fail (s "~A verifies after ~A inserts after some
-                    key updates and pops." h (1+ i))))))))
+        (ds:insert r r h)))))
 
-    
 (defun test-pop-extrema (heap-type)
   (let ((h (make-instance heap-type))
         (v (make-array 32 :fill-pointer 0 :adjustable t)))
@@ -93,18 +79,7 @@
                 (vp (vector-pop v)))
             (unless (and (eql hp vp) (ds:verify-heap h))
               (return nil))))
-        (s "~A pops correct val and heap-verifies for 199 pops." h))))
-    
-    ;; (dotimes (i 199)
-    ;;   (let ((hp (ds:key (ds:pop-extrema h)))
-    ;;         (vp (vector-pop v)))
-    ;;     (when (or (not (eql hp vp)) (zerop (rem (1+ i) 10)))
-    ;;         (is hp vp
-    ;;             (s "~A pops same value as vector after ~A pops."
-    ;;                h (1+ i)))
-    ;;         (ds:print-heap h)
-    ;;         (error "kek")
-    ;;         (return nil))))))
+        (s "~A pops correct vals and heap-verifies ∀ pops." h))))
 
 (defun test-delete-node (heap-type)
   (let ((h (make-instance heap-type))
@@ -112,8 +87,7 @@
         (v (make-array 100)))
     (ds:insert 1 1 h)
     (ds:delete-node (ds:peek-extrema h) h)
-    (ok (ds:empty-p h)
-        (s "~A is empty after delete-node'ing the root." h))
+    (ok (ds:empty-p h) (s "~A is empty after delete-node on root." h))
 
     (dotimes (i 100)
       (let ((r (random 100)))
@@ -127,10 +101,8 @@
               when (not (ds:verify-heap h))
                 do (return nil)
               finally (return t))
-        (s "~A verifies as heap at each step of deleting all nodes
-                     in random order." h))
-    (ok (ds:empty-p h)
-        (s "~A is empty after randomly deleting all nodes." h))))
+        (s "~A heap-verifies ∀ node deletions in random order." h))
+    (ok (ds:empty-p h) (s "~A is empty after deleting all nodes." h))))
 
 (defun test-update-key (heap-type)
   (let ((h (make-instance heap-type))
@@ -138,13 +110,8 @@
     (dotimes (i 200)
       (let ((r (random 200)))
         (vector-push-extend (ds:insert r i h) v)))
-    (dotimes (i 100)
-      (let ((r1 (random 200))
-            (r2 (random 300)))
-        (ds:update-key r2 (aref v r1) h)
-        (when (or (not (ds:verify-heap h)) (zerop (rem (1+ i) 10)))
-          (ok (ds:verify-heap h)
-              (s "~A verifs after ~A key updates." h (1+ i))))))))
+    (hrepok 100 (s "~A heap-verifies ∀ 100 key updates." h)
+      (ds:update-key (random 300) (aref v (random 200)) h))))
 
 (defun test-meld (heap-type)
   (let ((h1 (make-instance heap-type))
@@ -198,14 +165,6 @@
         (s "~A meld generates error if heaps w/ diff comp-fns
                      are attempted melded." heap-type))))
   
-
-
-    
-    
-      
-
-    
-
 
 (defun test-suite (heap-type)
   (assert (typep heap-type 'symbol)) ;Can be made more extensive.
