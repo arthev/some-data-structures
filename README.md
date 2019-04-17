@@ -11,7 +11,7 @@ Implementation follows (Cormen et al., 2001), adjusted for zero-indexed arrays, 
 
 Implemented since implicit d-ary heaps performed well in (Larkin et al., 2014).
 
-Bell example: update-key in general, rather than just improve-key.
+Bell example: update-key in general, rather than just improve-key.\
 Whistle example: array-indices stored in nodes, avoiding having to search for them when doing arbitrary node operations.
 
 #### Pairing Heap
@@ -21,7 +21,7 @@ where nodes contain keys, data, and tree pointers. Implementation follows (Fredm
 
 Implemented since pairing heaps performed well in (Larkin et al., 2014).
 
-Bell example: arbitrary comparison functions possible.
+Bell example: arbitrary comparison functions possible.\
 Whistle example: update-key in general, rather than just improve-key.
 
 #### Priority Queue
