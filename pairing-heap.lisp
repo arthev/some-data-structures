@@ -130,7 +130,17 @@
   (setf (right n) nil (parent n) nil)
   (node->heap n (comp-fn h)))
 
-;;;TODO: Make similar seq initializer for pairing-heap as for binary-heaps.
+(defmethod initialize-instance :after ((h pairing-heap)
+                                       &key (seq nil) &allow-other-keys)
+  (assert (typep seq 'sequence) (seq) "~A is not a sequence." seq)
+  (when (and seq (not (zerop (length seq))))
+    (map nil (lambda (n)
+               (if (typep n 'pairing-node)
+                   (progn (setf (parent n) nil (right n) nil (left n) nil)
+                          (insert-node n h))
+                   (insert (key n) (datum n) h)))
+         seq))
+  h)
 
 ;;;For testing purposes
 (defmethod verify-heap ((h pairing-heap))

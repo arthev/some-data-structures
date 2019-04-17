@@ -98,9 +98,9 @@
     (is (ds:key (ds:pop-extrema h)) (vector-pop v)
         (s "~A pops same key as least item in sorted vec." h))
     (repok 199 (s "~A pops correct vals and heap-verifies ∀ pops." h)
-        (and (eql hp vp) (ds:verify-heap h))
-      (let ((hp (ds:key (ds:pop-extrema h))) (vp (vector-pop v)))
-        :check))))
+        (and (eql (ds:key (ds:pop-extrema h)) (vector-pop v))
+             (ds:verify-heap h))
+        :check)))
   
 (defun test-delete-node (heap-type comp-fn)
   (hlet ((ht (make-hash-table))
@@ -178,9 +178,25 @@
         (s "~A meld generates error if heaps w/ diff comp-fns
                      are attempted melded." heap-type))))
 
+(defun test-seq-init (heap-type node-type comp-fn)
+  (let ((v (make-array 100 :fill-pointer 0 :adjustable t)))
+    (dotimes (i 100)
+      (vector-push-extend (make-instance node-type
+                                         :key (random 200)
+                                         :datum i)
+                          v))
+    (let ((h (make-instance heap-type :comp-fn comp-fn :seq v)))
+      (sort v (complement comp-fn) :key #'ds:key)
+      (ok (ds:verify-heap h) (s "~A heap-verifies after seq init." h))
+      (repok 100 (s "~A contains right items and verifies when popping
+                     after seq init." h)
+          (and (eql (ds:key (ds:pop-extrema h)) (ds:key (vector-pop v)))
+               (ds:verify-heap h))
+        :check))))
 
-(defun test-suite (heap-type)
-  (assert (typep heap-type 'symbol)) ;Can be made more extensive.
+
+(defun test-suite (heap-type node-type)
+  (assert (typep heap-type 'symbol))
   (htest<> test-empty-p)
   (htest<> test-peek-extrema)
   (htest<> test-insert)
@@ -188,12 +204,12 @@
   (htest<> test-delete-node)
   (htest<> test-update-key)
   (htest<> test-meld)
+  (test-seq-init heap-type node-type #'<)
+  (test-seq-init heap-type node-type #'>)
   )
 
-;;TODO: test seq initializer for heaps
-
-(test-suite 'ds:pairing-heap)
-(test-suite 'ds:binary-heap)
+(test-suite 'ds:pairing-heap 'ds:pairing-node)
+(test-suite 'ds:binary-heap 'ds:binary-node)
 
 
 

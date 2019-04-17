@@ -32,11 +32,10 @@
 
 (defmethod pop-extrema ((h binary-heap))
   (when (empty-p h) (return-from pop-extrema nil))
-  (let ((extrema (peek-extrema h)))
+  (prog1 (peek-extrema h)
     (setf (aref (vec h) 0) (vector-pop (vec h))
           (index (aref (vec h) 0)) 0)
-    (heapify (peek-extrema h) h)
-    extrema))
+    (heapify (peek-extrema h) h)))
 
 (defmethod delete-node ((n binary-node) (h binary-heap))
   (assert (eql n (aref (vec h) (index n))) (n h) "~A is not in ~A." n h)
