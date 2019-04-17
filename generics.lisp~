@@ -1,0 +1,6 @@
+(defgeneric empty-p (heap)
+  (:documentation
+   "Returns whether HEAP is an empty heap.
+   Binary: O(1).
+   Pairing: O(1)."))
+  

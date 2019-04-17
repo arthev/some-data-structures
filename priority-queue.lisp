@@ -6,14 +6,17 @@
     :initarg :heap)
    (comp-fn
     :accessor comp-fn
-    :initarg :comp-fn)))
+    :initarg :comp-fn))
+  (:documentation
+   "A priority queue 'wrapper' around a heap."))
 
 (defmethod initialize-instance :after ((q priority-queue)
-                                       &key (heap nil) (comp-fn #'<))
-  (if heap
-      (setf (heap q) heap)
-      (setf (heap q) (make-instance 'pairing-heap :comp-fn comp-fn)))
-  (setf (comp-fn q) comp-fn))
+                                       &key (heap 'pairing-heap)
+                                         (comp-fn #'<))
+  (if (typep heap 'symbol)
+      (setf (heap q) (make-instance heap :comp-fn comp-fn)
+            (comp-fn q) comp-fn)
+      (setf (heap q) heap (comp-fn q) (comp-fn heap))))
 
 (defmethod empty-p ((q priority-queue))
   (empty-p (heap q)))
@@ -35,3 +38,6 @@
 
 (defmethod meld ((q1 priority-queue) (q2 priority-queue))
   (meld (heap q1) (heap q2)))
+
+
+    

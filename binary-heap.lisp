@@ -1,5 +1,19 @@
 (in-package :some-data-structures)
 ;;;Externals
+(defclass binary-heap ()
+  ((vec
+    :accessor vec
+    :initarg :seq
+    :initform (make-array 32 :fill-pointer 0 :adjustable t))
+   (comp-fn
+    :accessor comp-fn
+    :initarg :comp-fn
+    :initform #'<))
+  (:documentation
+   "A binary heap implementation per (Cormen et al., 2002), adjusted 
+    for zero-indexed arrays. The heap is implicit: relations are
+    array-positional instead of pointer-explicit."))
+
 (defclass binary-node ()
   ((key
     :accessor key
@@ -9,17 +23,10 @@
     :initarg :datum)
    (index
     :accessor index
-    :initarg :index)))
-
-(defclass binary-heap ()
-  ((vec
-    :accessor vec
-    :initarg :seq
-    :initform (make-array 32 :fill-pointer 0 :adjustable t))
-   (comp-fn
-    :accessor comp-fn
-    :initarg :comp-fn
-    :initform #'<)))
+    :initarg :index))
+  (:documentation
+   "Binary heap nodes. Storing the index saves searching for position
+    when calling operations on arbitrarily-positioned nodes."))
 
 (defmethod empty-p ((h binary-heap))
   (zerop (length (vec h))))
@@ -41,10 +48,11 @@
   (assert (eql n (aref (vec h) (index n))) (n h) "~A is not in ~A." n h)
   (let* ((leaf (vector-pop (vec h)))
          (leaf-key (key leaf)))
-    (setf (aref (vec h) (index n)) leaf
-          (index leaf) (index n)
-          (key leaf) (key n))
-    (update-key leaf-key leaf h)
+    (unless (eql leaf n)
+      (setf (aref (vec h) (index n)) leaf
+            (index leaf) (index n)
+            (key leaf) (key n))
+      (update-key leaf-key leaf h))
     n))
 
 (defmethod update-key (new-key (n binary-node) (h binary-heap))
@@ -58,6 +66,8 @@
     n))
 
 (defmethod meld ((h1 binary-heap) (h2 binary-heap))
+  ;;Melding delegates to the seq initializer for binary heaps,
+  ;;and then updates the vec pointers of the input heaps.
   (assert (eql (comp-fn h1) (comp-fn h2)) (h1 h2)
           "~A and ~A don't have same comp-fn." h1 h2)
   (let ((new-heap

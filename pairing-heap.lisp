@@ -1,5 +1,17 @@
 (in-package :some-data-structures)
 ;;;Externals
+(defclass pairing-heap ()
+  ((root
+    :accessor root
+    :initform nil
+    :initarg :root)
+   (comp-fn
+    :accessor comp-fn
+    :initform #'<
+    :initarg :comp-fn))
+  (:documentation
+   "A multipass pairing heap implementation per (Fredman et al., 1986)."))
+
 (defclass pairing-node ()
   ((left 
     :accessor left
@@ -20,17 +32,10 @@
    (datum
     :accessor datum
     :initform nil
-    :initarg :datum)))
-
-(defclass pairing-heap ()
-  ((root
-    :accessor root
-    :initform nil
-    :initarg :root)
-   (comp-fn
-    :accessor comp-fn
-    :initform #'<
-    :initarg :comp-fn)))
+    :initarg :datum))
+  (:documentation
+   "Pairing heap nodes. Parent relations are per the representing
+    child-sibling binary tree, not per the heap tree."))
 
 (defmethod empty-p ((h pairing-heap))
   (null (root h)))
@@ -42,6 +47,8 @@
   (insert-node (make-instance 'pairing-node :key key :datum datum) h))
 
 (defmethod pop-extrema ((h pairing-heap))
+  ;;Builds resultant heap by isolating subtrees corr. to extrema's children
+  ;;and then combining them in pairs, using multipass, until only one tree.
   (when (empty-p h) (return-from pop-extrema nil))
   (prog1 (root h)
     (setf
@@ -81,6 +88,8 @@
   h)
 
 (defmethod meld ((h1 pairing-heap) (h2 pairing-heap))
+  ;;Melds the heaps by making one the child of the other,
+  ;;and then updating the root pointers of the input heaps.
   (when (not (eql (comp-fn h1) (comp-fn h2)))
     (error "Attempting meld w/ heaps w/ differing comp-fns."))
   (let ((parent
@@ -116,7 +125,7 @@
   (setf (right child) (left parent)
         (parent child) parent
         (left parent) child)
-  ;;Parent relation is for the binary repr, not for the heap tree itself.
+  ;;Pointers are per the repr child-sibling binary tree, not the heap tree."
   (when (right child)
     (setf (parent (right child)) child))
   parent)
@@ -131,7 +140,7 @@
   (node->heap n (comp-fn h)))
 
 (defmethod initialize-instance :after ((h pairing-heap)
-                                       &key (seq nil) &allow-other-keys)
+                                       &key (seq nil) &allow-other-keys)  
   (assert (typep seq 'sequence) (seq) "~A is not a sequence." seq)
   (when (and seq (not (zerop (length seq))))
     (map nil (lambda (n)
