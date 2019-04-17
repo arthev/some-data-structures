@@ -10,19 +10,44 @@
 (defmacro s (string &rest args)
   `(format nil ,string ,@args))
 
+(defmacro repok (times str check &body body)
+  (labels
+      ((replace-placeholder-with-check (sexp)
+         (cond ((and (atom sexp) (eql sexp :check))
+                `(unless ,check (return nil)))
+               ((atom sexp) sexp)
+               (t (mapcar #'replace-placeholder-with-check sexp)))))
+    `(ok (dotimes (i ,times t)
+           ,@(replace-placeholder-with-check body))
+         ,str)))
+
 (defmacro hrepok (times str &body body)
-  `(ok (dotimes (i ,times t)
-         ,@body
-         (unless (ds:verify-heap h) (return nil)))
-       ,str))
+  `(repok ,times ,str
+       (ds:verify-heap h)
+     ,@(append body '(:check))))
+
+(defmacro htest<> (test)
+  `(progn
+     (,test heap-type #'<)
+     (,test heap-type #'>)))
+
+(defmacro hlet (bindings &body body)
+  `(let ((h (make-instance heap-type :comp-fn comp-fn))
+         ,@bindings)
+     ,@body))
+
+(defmacro h2let (&body body)
+  `(let ((h1 (make-instance heap-type :comp-fn comp-fn))
+         (h2 (make-instance heap-type :comp-fn comp-fn)))
+     ,@body))
 
 ;;;Tests
 (plan nil)
 
 
 
-(defun test-empty-p (heap-type)
-  (let ((h (make-instance heap-type)))
+(defun test-empty-p (heap-type comp-fn)
+  (hlet ()
     (ok (ds:empty-p h) (s "~A is empty upon creation." h))
     (ds:insert 1 1 h)
     (ok (not (ds:empty-p h)) (s "~A is not empty after an insert." h))
@@ -35,19 +60,18 @@
       (ds:pop-extrema h))
     (ok (ds:empty-p h) (s "~A is empty after popping the 100 inserts." h))))
 
-(defun test-peek-extrema (heap-type)
-  (let ((h (make-instance heap-type))
-        (v (make-array 32 :fill-pointer 0 :adjustable t)))
+(defun test-peek-extrema (heap-type comp-fn)
+  (hlet ((v (make-array 32 :fill-pointer 0 :adjustable t)))
     (dotimes (i 200)
       (let ((r (random 1000)))
         (ds:insert r r h)
         (vector-push-extend r v)))
-    (sort v (ds:comp-fn h))
+    (sort v comp-fn)
     (is (ds:key (ds:peek-extrema h)) (aref v 0)
         (s "~A's peek-extrema returns extrema." h))))
 
-(defun test-insert (heap-type)
-  (let ((h (make-instance heap-type)))
+(defun test-insert (heap-type comp-fn)
+  (hlet ()
     (ok (ds:verify-heap h) (s "~A heap-verifies pre-insert." h))
     (hrepok 100 (s "~A heap-verifies ∀ 100 inserts." h)
       (let ((r (random 100)))
@@ -62,33 +86,29 @@
       (let ((r (random 60)))
         (ds:insert r r h)))))
 
-(defun test-pop-extrema (heap-type)
-  (let ((h (make-instance heap-type))
-        (v (make-array 32 :fill-pointer 0 :adjustable t)))
+(defun test-pop-extrema (heap-type comp-fn)
+  (hlet ((v (make-array 32 :fill-pointer 0 :adjustable t)))
     (ok (null (ds:pop-extrema h))
         (s "~A returns nil when popped when empty." h))
     (dotimes (i 200)
       (let ((r (random 1000)))
         (ds:insert r r h)
         (vector-push-extend r v)))
-    (sort v (complement (ds:comp-fn h)))
+    (sort v (complement comp-fn))
     (is (ds:key (ds:pop-extrema h)) (vector-pop v)
         (s "~A pops same key as least item in sorted vec." h))
-    (ok (dotimes (i 199 t)
-          (let ((hp (ds:key (ds:pop-extrema h)))
-                (vp (vector-pop v)))
-            (unless (and (eql hp vp) (ds:verify-heap h))
-              (return nil))))
-        (s "~A pops correct vals and heap-verifies ∀ pops." h))))
-
-(defun test-delete-node (heap-type)
-  (let ((h (make-instance heap-type))
-        (ht (make-hash-table))
-        (v (make-array 100)))
+    (repok 199 (s "~A pops correct vals and heap-verifies ∀ pops." h)
+        (and (eql hp vp) (ds:verify-heap h))
+      (let ((hp (ds:key (ds:pop-extrema h))) (vp (vector-pop v)))
+        :check))))
+  
+(defun test-delete-node (heap-type comp-fn)
+  (hlet ((ht (make-hash-table))
+         (v (make-array 100)))
     (ds:insert 1 1 h)
     (ds:delete-node (ds:peek-extrema h) h)
     (ok (ds:empty-p h) (s "~A is empty after delete-node on root." h))
-
+    
     (dotimes (i 100)
       (let ((r (random 100)))
         (setf (gethash i ht) (ds:insert r i h))
@@ -104,41 +124,34 @@
         (s "~A heap-verifies ∀ node deletions in random order." h))
     (ok (ds:empty-p h) (s "~A is empty after deleting all nodes." h))))
 
-(defun test-update-key (heap-type)
-  (let ((h (make-instance heap-type))
-        (v (make-array 200 :fill-pointer 0 :adjustable t)))
+(defun test-update-key (heap-type comp-fn)
+  (hlet ((v (make-array 200 :fill-pointer 0 :adjustable t)))
     (dotimes (i 200)
       (let ((r (random 200)))
         (vector-push-extend (ds:insert r i h) v)))
     (hrepok 100 (s "~A heap-verifies ∀ 100 key updates." h)
       (ds:update-key (random 300) (aref v (random 200)) h))))
 
-(defun test-meld (heap-type)
-  (let ((h1 (make-instance heap-type))
-        (h2 (make-instance heap-type)))
+(defun test-meld (heap-type comp-fn)
+  (h2let
     (ok (ds:empty-p (ds:meld h1 h2))
         (s "~A meld w/ two empty heaps returns an empty one." heap-type)))
-
-  (let ((h1 (make-instance heap-type))
-        (h2 (make-instance heap-type)))
+  (h2let
     (ds:insert 1 1 h1)
     (is (ds:meld h1 h2)
         h1
         (s "~A meld returns non-empty heap if given one 
                      empty heap." heap-type)))
-
-  (let ((h1 (make-instance heap-type))
-        (h2 (make-instance heap-type)))
-    (let ((n1 (ds:insert 3 3 h1)))
-      (ds:insert 5 5 h2)
+  (h2let
+    (let ((n1 (ds:insert 3 3 h1))
+          (n2 (ds:insert 5 5 h2)))
       (ds:meld h1 h2)
       (ok (and (eql (ds:peek-extrema h1) (ds:peek-extrema h2))
-               (eql (ds:peek-extrema h1) n1))
+               (eql (ds:peek-extrema h1)
+                    (if (funcall comp-fn (ds:key n1) (ds:key n2)) n1 n2)))
           (s "~A root of heaps meld updates to correct 
                        element given two 1-node heaps." heap-type))))
-  
-  (let ((h1 (make-instance heap-type))
-        (h2 (make-instance heap-type)))
+  (h2let
     (dotimes (i 40)
       (ds:insert (random 100) i h1))
     (dotimes (i 60)
@@ -155,8 +168,8 @@
           100
           (s "~A has size 100 after melding |60| and |40|." h1))))
   
-  (let ((h1 (make-instance heap-type :comp-fn #'<))
-        (h2 (make-instance heap-type :comp-fn #'>)))
+  (let ((h1 (make-instance heap-type :comp-fn comp-fn))
+        (h2 (make-instance heap-type :comp-fn (complement comp-fn))))
     (ok (block error-block
           (handler-case (ds:meld h1 h2)
             (error ()
@@ -164,18 +177,18 @@
           nil)
         (s "~A meld generates error if heaps w/ diff comp-fns
                      are attempted melded." heap-type))))
-  
+
 
 (defun test-suite (heap-type)
   (assert (typep heap-type 'symbol)) ;Can be made more extensive.
-  (test-empty-p heap-type)
-  (test-peek-extrema heap-type)
-  (test-insert heap-type)
-  (test-pop-extrema heap-type)
-  (test-delete-node heap-type)
-  (test-update-key heap-type)
-  (test-meld heap-type)
-  )
+  (htest<> test-empty-p)
+  (htest<> test-peek-extrema)
+  (htest<> test-insert)
+  (htest<> test-pop-extrema)
+  (htest<> test-delete-node)
+  (htest<> test-update-key)
+  (htest<> test-meld))
+
 
 (test-suite 'ds:pairing-heap)
 (test-suite 'ds:binary-heap)
