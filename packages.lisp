@@ -10,12 +10,12 @@
    :key
    :datum
    :empty-p
-   :size
    :peek-extrema
    :insert
    :pop-extrema
    :delete-node
    :update-key
    :meld
-   :verify-heap))
+   :verify-heap
+   :size))
    
