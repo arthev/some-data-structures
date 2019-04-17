@@ -187,8 +187,10 @@
   (htest<> test-pop-extrema)
   (htest<> test-delete-node)
   (htest<> test-update-key)
-  (htest<> test-meld))
+  (htest<> test-meld)
+  )
 
+;;TODO: test seq initializer for heaps
 
 (test-suite 'ds:pairing-heap)
 (test-suite 'ds:binary-heap)

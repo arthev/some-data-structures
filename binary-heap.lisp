@@ -1,5 +1,5 @@
 (in-package :some-data-structures)
-;;;External interface
+;;;Externals
 (defclass binary-node ()
   ((key
     :accessor key

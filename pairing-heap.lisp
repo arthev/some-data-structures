@@ -1,7 +1,7 @@
 (in-package :some-data-structures)
-;;;External interface
+;;;Externals
 (defclass pairing-node ()
-  ((left
+  ((left 
     :accessor left
     :initform nil
     :initarg :left)
@@ -32,7 +32,6 @@
     :initform #'<
     :initarg :comp-fn)))
 
-
 (defmethod empty-p ((h pairing-heap))
   (null (root h)))
 
@@ -43,28 +42,24 @@
   (insert-node (make-instance 'pairing-node :key key :datum datum) h))
 
 (defmethod pop-extrema ((h pairing-heap))
-  ;;TODO: Rewrite in more functional way. Queue-reduce?
   (when (empty-p h) (return-from pop-extrema nil))
-  (let ((subtree-list '())
-        (paired-list '())
-        (comp-fn (comp-fn h))
-        (extrema (root h)))
-    (do* ((sub (left (root h)) next)
-          (next (when sub (right sub)) (when sub (right sub))))
-         ((null sub))
-      (setf (parent sub) nil (right sub) nil)
-      (push sub subtree-list))
-    (do* ((first (pop subtree-list) (pop subtree-list))
-          (second (pop subtree-list) (pop subtree-list)))
-         ((and (null first) (null second)))
-      (if (null second)
-          (push first paired-list)
-          (push (meld-nodes first second comp-fn) paired-list)))
-    (let ((build-node (if (null paired-list) nil (pop paired-list))))
-      (dolist (sub paired-list)
-        (setf build-node (meld-nodes build-node sub comp-fn)))
-      (setf (root h) build-node)
-      extrema)))
+  (prog1 (root h)
+    (setf
+     (root h)
+     (if (null (left (root h)))
+         nil
+         (loop for subs = (loop for s = (left (root h)) then n
+                                for n = (right s) then (when s (right s))
+                                until (null s)
+                                do (setf (parent s) nil (right s) nil)
+                                collect s)
+                 then (loop for (s1 s2) on subs by #'cddr
+                            collect
+                            (if (null s2)
+                                s1
+                                (meld-nodes s1 s2 (comp-fn h))))
+               until (null (cdr subs))
+               finally (return (car subs)))))))
 
 (defmethod delete-node ((n pairing-node) (h pairing-heap))
   (if (eql n (root h))
@@ -99,8 +94,8 @@
     (setf (root h1) (root parent) (root h2) (root parent))
     parent))
 
-;;;Internal support
-(defmethod insertn-node ((n pairing-node) (h pairing-heap))
+;;;Internals
+(defmethod insert-node ((n pairing-node) (h pairing-heap))
   (setf (root h) (if (empty-p h) n (meld-nodes n (root h) (comp-fn h))))
   n)
 
@@ -121,13 +116,13 @@
   (setf (right child) (left parent)
         (parent child) parent
         (left parent) child)
-  ;;Encoding parent relation as per the child-sibling tree rather than heap.
+  ;;Parent relation is for the binary repr, not for the heap tree itself.
   (when (right child)
     (setf (parent (right child)) child))
   parent)
 
 (defmethod cut-subtree ((n pairing-node) (h pairing-heap))
-  (if (eql (left (parent n)) n) ;child of parent? if not, sibling.
+  (if (eql (left (parent n)) n) ;child of parent? else sibling.
       (setf (left (parent n)) (right n))
       (setf (right (parent n)) (right n)))
   (when (right n)
@@ -156,8 +151,3 @@
                  0
                  (+ 1 (trav-count (left n)) (trav-count (right n))))))
     (trav-count (root h))))
-
-
-
-
-
