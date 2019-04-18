@@ -1,6 +1,5 @@
 (defpackage :some-data-structures
   (:use :cl)
-  (:nicknames :ds)
   (:export
    :priority-queue
    :pairing-node

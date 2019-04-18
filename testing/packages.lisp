@@ -1,2 +1,3 @@
 (defpackage :testing-some-data-structures
-  (:use :cl :prove))
+  (:use :cl :prove)
+  (:local-nicknames (:ds :some-data-structures)))
