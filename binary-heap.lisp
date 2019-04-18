@@ -1,12 +1,13 @@
-(in-package :some-data-structures)
-;;;Externals
+(cl:in-package #:some-data-structures)
+
+;;; Externals.
 (defclass binary-heap ()
-  ((vec
+  ((binary-heap-vector
     :accessor vec
     :initarg :seq
     :initform (make-array 32 :fill-pointer 0 :adjustable t))
-   (comp-fn
-    :accessor comp-fn
+   (comparison-function
+    :reader comp-fn
     :initarg :comp-fn
     :initform #'<))
   (:documentation
@@ -15,13 +16,13 @@
     array-positional instead of pointer-explicit."))
 
 (defclass binary-node ()
-  ((key
+  ((node-key
     :accessor key
     :initarg :key)
-   (datum
-    :accessor datum
+   (node-datum
+    :reader datum
     :initarg :datum)
-   (index
+   (node-index
     :accessor index
     :initarg :index))
   (:documentation
@@ -38,11 +39,10 @@
   (insert-node (make-instance 'binary-node :key key :datum datum) h))
 
 (defmethod pop-extrema ((h binary-heap))
-  (when (empty-p h) (return-from pop-extrema nil))
-  (prog1 (peek-extrema h)
-    (setf (aref (vec h) 0) (vector-pop (vec h))
-          (index (aref (vec h) 0)) 0)
-    (heapify (peek-extrema h) h)))
+  (let ((extrema (pop-extrema-node h)))
+    (if (null extrema)
+        nil
+        (datum extrema))))
 
 (defmethod delete-node ((n binary-node) (h binary-heap))
   (assert (eql n (aref (vec h) (index n))) (n h) "~A is not in ~A." n h)
@@ -66,8 +66,8 @@
     n))
 
 (defmethod meld ((h1 binary-heap) (h2 binary-heap))
-  ;;Melding delegates to the seq initializer for binary heaps,
-  ;;and then updates the vec pointers of the input heaps.
+  ;; Melding delegates to the seq initializer for binary heaps,
+  ;; and then updates the vec pointers of the input heaps.
   (assert (eql (comp-fn h1) (comp-fn h2)) (h1 h2)
           "~A and ~A don't have same comp-fn." h1 h2)
   (let ((new-heap
@@ -80,13 +80,18 @@
     (setf (vec h1) (vec new-heap) (vec h2) (vec new-heap))
     new-heap))
   
-;;;Internal support
+;;; Internals.
 (defmethod insert-node ((n binary-node) (h binary-heap))
-  (let ((key (key n)))
-    (setf (index n) (length (vec h))
-          (key n) nil)
-    (vector-push-extend n (vec h))
-    (update-key key n h)))
+  (setf (index n) (length (vec h)))
+  (vector-push-extend n (vec h))
+  (update-key (prog1 (key n) (setf (key n) nil)) n h)) ; NIL flags as new.
+
+(defmethod pop-extrema-node ((h binary-heap))
+  (when (empty-p h) (return-from pop-extrema-node nil))
+  (prog1 (peek-extrema h)
+    (setf (aref (vec h) 0) (vector-pop (vec h))
+          (index (aref (vec h) 0)) 0)
+    (heapify (peek-extrema h) h)))
 
 (defmethod parent-impl ((n binary-node) (h binary-heap))
   (aref (vec h) (max 0 (floor (/ (1- (index n)) 2)))))
@@ -128,8 +133,8 @@
                                        &key (seq nil) &allow-other-keys)
   (assert (typep seq 'sequence) (seq) "~A is not a sequence." seq)
   (let ((new-vec (make-array 32 :fill-pointer 0 :adjustable t)))
-    (setf (vec h) new-vec)    
-    (when (and seq (not (zerop (length seq))))
+    (setf (vec h) new-vec)
+    (unless (or (null seq) (zerop (length seq)))
       (map nil (lambda (n)
                  (vector-push-extend
                   (if (typep n 'binary-node)
@@ -145,22 +150,21 @@
             do (heapify (aref new-vec i) h))))
   h)
 
-;;;For testing purposes
+;;; For testing purposes.
 (defmethod verify-heap ((h binary-heap))
   (when (empty-p h) (return-from verify-heap t))
-  (loop for i from 0 to (floor (/ (length (vec h)) 2))
-        do (let* ((n (aref (vec h) i))
-                  (l (left-impl n h))
-                  (r (right-impl n h)))
-             (when (and l (not (or
-                                (funcall (comp-fn h) (key n) (key l))
-                                (eql (key n) (key l)))))
-               (return-from verify-heap nil))
-             (when (and r (not (or
-                                (funcall (comp-fn h) (key n) (key r))
-                                (eql (key n) (key r)))))
-               (return-from verify-heap nil))))
-  t)
+  (flet ((verify-relation (parent child)
+           (unless (or (null child)
+                       (funcall (comp-fn h) (key parent) (key child))
+                       (eql (key parent) (key child)))
+             (return-from verify-heap nil))))
+    (loop for i from 0 to (floor (/ (length (vec h)) 2))
+          do (let* ((n (aref (vec h) i))
+                    (l (left-impl n h))
+                    (r (right-impl n h)))
+               (verify-relation n l)
+               (verify-relation n r)))
+    t))
 
 (defmethod size ((h binary-heap))
   (length (vec h)))
