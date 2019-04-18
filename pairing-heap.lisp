@@ -89,16 +89,12 @@
   ;;and then updating the root pointers of the input heaps.
   (when (not (eql (comp-fn h1) (comp-fn h2)))
     (error "Attempting meld w/ heaps w/ differing comp-fns."))
-  (let ((r1 (root h1)) (r2 (root h2)))
-    (multiple-value-bind (child parent)
-        (cond ((empty-p h1) (values r1 r2))
-              ((empty-p h2) (values r2 r1))
-              (t (if (funcall (comp-fn h1) (key r1) (key r2))
-                     (values r2 r1)
-                     (values r1 r2))))
-      (when child (add-child child parent))
-      (setf (root h1) parent (root h2) parent)
-      h1)))
+  (let ((parent
+          (cond ((empty-p h1) (root h2))
+                ((empty-p h2) (root h1))
+                (t (meld-nodes (root h1) (root h2) (comp-fn h1))))))
+    (setf (root h1) parent (root h2) parent)
+    h1))
 
 ;;;Internals
 (defmethod insert-node ((n pairing-node) (h pairing-heap))
