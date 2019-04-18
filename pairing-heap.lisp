@@ -61,7 +61,7 @@
                            collect (if (null s2)
                                        s1
                                        (meld-nodes s1 s2 (comp-fn h))))))
-              ((not (cdr subs)) (car subs))))))
+              ((not (cdr subs)) (car subs)))))) ;not cdr implies length 1
 
 (defmethod delete-node ((n pairing-node) (h pairing-heap))
   (if (eql n (root h))
@@ -145,9 +145,8 @@
         ((null p) t)
       (do ((c (left p) (right c)))
           ((null c))
-        (if (or
-             (funcall (comp-fn h) (key p) (key c))
-             (eql (key p) (key c)))
+        (if (or (funcall (comp-fn h) (key p) (key c))
+                (eql (key p) (key c)))
             (push c s)
             (return-from verify-heap nil))))))
 

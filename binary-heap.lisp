@@ -158,7 +158,8 @@
                (return-from verify-heap nil))
              (when (and r (not (or
                                 (funcall (comp-fn h) (key n) (key r))
-                                (eql (key n) (key r))))))))
+                                (eql (key n) (key r)))))
+               (return-from verify-heap nil))))
   t)
 
 (defmethod size ((h binary-heap))
