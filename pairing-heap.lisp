@@ -53,20 +53,17 @@
   (prog1 (root h)
     (setf
      (root h)
-     (if (null (left (root h)))
-         nil
-         (loop for subs = (loop for s = (left (root h)) then n
-                                for n = (right s) then (when s (right s))
-                                until (null s)
-                                do (setf (parent s) nil (right s) nil)
-                                collect s)
-                 then (loop for (s1 s2) on subs by #'cddr
-                            collect
-                            (if (null s2)
-                                s1
-                                (meld-nodes s1 s2 (comp-fn h))))
-               until (null (cdr subs))
-               finally (return (car subs)))))))
+     (loop for subs = (loop for s = (left (root h))
+                              then (prog1 (right s)
+                                     (setf (parent s) nil (right s) nil))
+                            until (null s)
+                            collect s)
+             then (loop for (s1 s2) on subs by #'cddr
+                        collect (if (null s2)
+                                    s1
+                                    (meld-nodes s1 s2 (comp-fn h))))
+           while (cdr subs)
+           finally (return (car subs))))))
 
 (defmethod delete-node ((n pairing-node) (h pairing-heap))
   (if (eql n (root h))
